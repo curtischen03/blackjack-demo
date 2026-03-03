@@ -1,65 +1,216 @@
-import Image from "next/image";
+"use client";
+import React, { useEffect, useState } from "react";
 
 export default function Home() {
+  const url = "https://deckofcardsapi.com/api/deck";
+
+  const [deckId, setDeckId] = useState("");
+  const [dealerCount, setDealerCount] = useState(0);
+  const [playerCount, setPlayerCount] = useState(0);
+  const [playerCards, setPlayerCards] = useState([]);
+  const [dealerCards, setDealerCards] = useState([]);
+  const [result, setResult] = useState("");
+  const [isStand, setIsStand] = useState(false);
+
+  // Helper: Reset game
+  const reset = async () => {
+    setDeckId("");
+    setPlayerCards([]);
+    setDealerCards([]);
+    setDealerCount(0);
+    setPlayerCount(0);
+    setResult("");
+    setIsStand(false);
+    // Re-initialize game
+    fetchInitialData();
+  };
+
+  const cardData = (card) => ({
+    card: `${card.value} of ${card.suit}`,
+    cardPic: card.image,
+    value: card.value,
+  });
+
+  const getCardNumericValue = (cardValue) => {
+    switch (cardValue) {
+      case "ACE":
+        return 11;
+      case "KING":
+      case "QUEEN":
+      case "JACK":
+        return 10;
+      default:
+        return Number(cardValue);
+    }
+  };
+
+  const gameResult = (dCount, pCount) => {
+    if (pCount > 21) return "You Bust! You lose!";
+    if (dCount > 21) return "Dealer Busts! You win!";
+    if (pCount > dCount) return "Your count is higher! You win!";
+    if (pCount < dCount) return "Your count is lower! You lose!";
+    return "You tie!";
+  };
+
+  const fetchInitialData = async () => {
+    try {
+      const deckRes = await fetch(`${url}/new/shuffle/?deck_count=1`);
+      const deckData = await deckRes.json();
+      const id = deckData.deck_id;
+      setDeckId(id);
+
+      const drawRes = await fetch(`${url}/${id}/draw/?count=4`);
+      const drawData = await drawRes.json();
+      const cards = drawData.cards;
+
+      setPlayerCards([cardData(cards[0]), cardData(cards[2])]);
+      setDealerCards([cardData(cards[1]), cardData(cards[3])]);
+
+      setPlayerCount(
+        getCardNumericValue(cards[0].value) +
+          getCardNumericValue(cards[2].value),
+      );
+      setDealerCount(
+        getCardNumericValue(cards[1].value) +
+          getCardNumericValue(cards[3].value),
+      );
+    } catch (err) {
+      console.error("Initialization error:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
+
+  const hit = async () => {
+    if (isStand || result) return;
+    try {
+      const res = await fetch(`${url}/${deckId}/draw/?count=1`);
+      const data = await res.json();
+      const newCard = data.cards[0];
+
+      const newPlayerCards = [...playerCards, cardData(newCard)];
+      const newPlayerCount = playerCount + getCardNumericValue(newCard.value);
+
+      setPlayerCards(newPlayerCards);
+      setPlayerCount(newPlayerCount);
+
+      if (newPlayerCount >= 21) {
+        setIsStand(true);
+        setResult(gameResult(dealerCount, newPlayerCount));
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const dealerDraw = async () => {
+    try {
+      const res = await fetch(`${url}/${deckId}/draw/?count=1`);
+      const data = await res.json();
+      const newCard = data.cards[0];
+
+      const newDealerCount = dealerCount + getCardNumericValue(newCard.value);
+      setDealerCards((prev) => [...prev, cardData(newCard)]);
+      setDealerCount(newDealerCount);
+
+      return newDealerCount;
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const standAction = async () => {
+    setIsStand(true);
+    let currentDealerCount = dealerCount;
+
+    // Simple dealer AI: hit until 17
+    if (currentDealerCount < 17) {
+      currentDealerCount = await dealerDraw();
+    }
+
+    setResult(gameResult(currentDealerCount, playerCount));
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-vh-100 d-flex flex-column">
+      <footer className="header">
+        <div className="container">
+          <span className="flex display-6 pt-2">Blackjack Demo</span>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </footer>
+      <main className="container flex-grow-1 py-5">
+        <div className="mt-4">
+          <h4>
+            {isStand
+              ? `Dealer Count: ${dealerCount}, Player Count: ${playerCount}`
+              : `Player Count: ${playerCount}`}
+          </h4>
+        </div>
+
+        {result && (
+          <div className="text-center my-4">
+            <h1 className="fw-bold">{result}</h1>
+            <button className="btn btn-danger" onClick={reset}>
+              RESET
+            </button>
+          </div>
+        )}
+
+        <h2 className="fw-bold">Dealer</h2>
+        <div className="d-flex flex-wrap gap-3">
+          {dealerCards.map((card, i) => (
+            <div key={i} className="text-center">
+              <h3>Card {i + 1}</h3>
+              <img
+                className="cards"
+                style={{ width: "150px" }}
+                src={
+                  !isStand && i === 1
+                    ? "https://deckofcardsapi.com/static/img/back.png"
+                    : card.cardPic
+                }
+                alt={card.card}
+              />
+            </div>
+          ))}
+        </div>
+
+        <h2 className="fw-bold mt-4">Player</h2>
+        {!result && (
+          <div className="mb-3 d-flex gap-2">
+            <button className="btn btn-success" onClick={hit}>
+              HIT
+            </button>
+            <button className="btn btn-warning" onClick={standAction}>
+              STAND
+            </button>
+          </div>
+        )}
+
+        <div className="d-flex flex-wrap gap-3">
+          {playerCards.map((card, i) => (
+            <div key={i} className="text-center">
+              <h3>Card {i + 1}</h3>
+              <img
+                className="cards"
+                style={{ width: "150px" }}
+                src={card.cardPic}
+                alt={card.card}
+              />
+            </div>
+          ))}
         </div>
       </main>
+
+      <footer className="footer">
+        <div className="container">
+          <span className="flex">
+            Disclaimer: This Blackjack demo does not cover all the rules.
+          </span>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -1,0 +1,45 @@
+.flex {
+  display: flex;
+  gap: 30px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+img {
+  height: 20vh;
+}
+.footer {
+  bottom: 0%;
+  width: 100%;
+  min-height: 6vh; /* Set the fixed height of the footer here */
+  line-height: 60px; /* Vertically center the text there */
+  color: white;
+  background-color: #a31d1d;
+}
+
+.middle {
+  min-height: 86vh;
+  background-color: white;
+}
+body {
+  height: 100%;
+  background-color: #caf0f8;
+}
+.header {
+  top: 0;
+  width: 100%;
+  min-height: 8vh; /* Set the fixed height of the footer here */
+  line-height: 60px; /* Vertically center the text there */
+  color: white;
+  font-weight: bold;
+  background-color: #a31d1d;
+}
+
+* {
+  font-family: "PT Serif", serif;
+}
+
+.cards {
+  height: 200px;
+  width: auto;
+}
